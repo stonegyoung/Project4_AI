@@ -1,0 +1,12 @@
+git clone
+
+<가상 환경 생성(안해도 됨)>
+터미널창(cmd)에서 
+python -m venv ai
+ai\Scripts\activate
+
+<필요 라이브러리 설치>
+pip intsall –r requirements.txt
+
+chat 폴더: 챗봇 관련 원시 코드(api key가 없다면 실행 안됨)
+mediapipe 폴더: 미디어파이프레퍼런스.txt 구현 코드
