@@ -1,7 +1,7 @@
 import cv2
 from mediapipe.python.solutions import hands as mp_hands
-from mediapipe.python.solutions import drawing_utils as mp_drawing
-import numpy as np
+# from mediapipe.python.solutions import drawing_utils as mp_drawing
+# import numpy as np
 import json
 import sys
 hands = mp_hands.Hands()
@@ -41,7 +41,7 @@ while cap.isOpened():
         # print(json.dumps(hand_data), flush=True)
         print(json.dumps(hand_data))
         sys.stdout.flush()
-        print(hand_data) # 먼저 나온 손만 인식
+        # print(hand_data) # 먼저 나온 손만 인식
         
     # cv2.imshow('', img)
     if cv2.waitKey(1) & 0xFF == 27:
