@@ -39,6 +39,7 @@ rag_chain = (
     |chatgpt # 모델
 )
 
-q = input()
-result = rag_chain.invoke(q)
-print(result.content)
+while True:
+    q = input()
+    result = rag_chain.invoke(q)
+    print(result.content)
