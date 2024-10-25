@@ -31,6 +31,7 @@ share/python-wheels/
 MANIFEST
 /p4/
 .env
+/testDB/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
