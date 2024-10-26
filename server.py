@@ -90,7 +90,7 @@ def chatbot(chat:Chat):
     ans = chatgpt.invoke(result).content
     # 각 id의 히스토리에 추가
     data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
-    db.child("User").child(id).update(data)
+    db.child("User").child(chat.id).update(data)
     return {"result": ans}
 
 @app.get("/reset_chat")
