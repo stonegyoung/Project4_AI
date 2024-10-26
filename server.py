@@ -2,24 +2,34 @@ from fastapi import FastAPI, Form
 import uvicorn
 from pydantic import BaseModel
 
-import pandas as pd
 
 from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain.schema import SystemMessage
 from langchain.chat_models import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+
+import pyrebase
+import json
+
 from dotenv import load_dotenv
 
 load_dotenv()
-data = pd.read_csv('C:/project4/chat/id_history.csv', index_col=0, na_filter=False)
+
+
+with open("./chat/auth.json") as f:
+    config = json.load(f)
+    
+firebase = pyrebase.initialize_app(config)
+db = firebase.database()
 
 def get_session_history(session_ids):
     print(f"[대화 세션ID]: {session_ids}")
-    if session_ids not in data.index:  # 세션 ID가 data에 없는 경우
+    if db.child("User").child(session_ids).get().val() is None:  # 세션 ID가 data에 없는 경우
         # 새로운 ChatMessageHistory 객체를 생성하여 data에 저장
-        data.loc[session_ids] = {"history":""}
-    return data.loc[session_ids].history  # 해당 세션 ID에 대한 세션 기록 반환
+        data = {"history" : ""}
+        db.child("User").child(session_ids).set(data) 
+    return db.child("User").child(session_ids).get().val()['history'] # 해당 세션 ID에 대한 세션 기록 반환
 
 # page_content만 저장
 def format_docs(docs):
@@ -79,13 +89,14 @@ def chatbot(chat:Chat):
     # 답변
     ans = chatgpt.invoke(result).content
     # 각 id의 히스토리에 추가
-    data.loc[chat.id].history += f'Human: {chat.question}\nAI: {ans}\n'
-    data.to_csv('C:/project4/chat/id_history.csv')
+    data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
+    db.child("User").child(id).update(data)
     return {"result": ans}
 
 @app.get("/reset_chat")
 def reset_chat(id:str=Form(...)):
     # 초기화 코드
+    db.child("User").child(id).update({"history": ""})
     return {"result": f"{id}의 챗봇 내역이 초기화되었습니다."}
 
 if __name__ == "__main__":

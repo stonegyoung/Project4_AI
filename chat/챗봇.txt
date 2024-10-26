@@ -18,3 +18,6 @@ RunnableWithMessageHistory을 이용하여 RAG에 history를 넣어 챗봇 LLM �
 
 - id_history.csv, rag_chat_with_csv.ipynb
 csv에 있는 아이디와 히스토리를 이용하여 RAG 챗봇 LLM 만들기
+
+- rag_chat_with_fb.ipynb
+firebase에 있는 아이디와 히스토리를 이용하여 RAG 챗봇 LLM 만들기
