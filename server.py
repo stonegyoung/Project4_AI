@@ -27,7 +27,7 @@ def get_session_history(session_ids):
     print(f"[대화 세션ID]: {session_ids}")
     if db.child("User").child(session_ids).get().val() is None:  # 세션 ID가 data에 없는 경우
         # 새로운 ChatMessageHistory 객체를 생성하여 data에 저장
-        data = {"history" : ""}
+        data = {"pw":"", "point":0, "history" : ""}
         db.child("User").child(session_ids).set(data) 
     return db.child("User").child(session_ids).get().val()['history'] # 해당 세션 ID에 대한 세션 기록 반환
 
@@ -65,13 +65,19 @@ class Chat(BaseModel):
     id : str
     question : str
 
-
 @app.get("/login")
 def login(login:Login):
+    loginid = set(db.child("User").get().val().keys())
     # 아이디가 DB안에 있고 pw가 동일하면 로그인 완료
     # DB 안에 없으면 회원가입/그냥 바로 만들기
     # pw 다르면 실패
-    return {"result": "로그인 기능입니다"}
+    if login.id in loginid: # id 존재
+        if login.pw == db.child("User").child(login.id).get().val()['pw']:
+            return {'result': f'{login.id} 로그인 완료'}
+        else:
+            return {'result': '비밀번호 오류'}
+    else:
+        return {"result": "아이디 오류"}
 
 @app.get("/chatbot")
 def chatbot(chat:Chat):

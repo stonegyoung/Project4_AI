@@ -17,7 +17,7 @@ def format_docs(docs):
 # 모델
 chatgpt = ChatOpenAI(
     model_name="gpt-4o-mini",
-    temperature = 0.3
+    temperature = 0.1
 )
 
 # 챗 메세지
@@ -35,7 +35,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k":3})
 
 while True:
     try:
-        q = input()
+        q = input("User: ")
 
         context = format_docs(retriever.invoke(history+q))
         
@@ -48,7 +48,8 @@ while True:
         ans = chatgpt.invoke(result).content
         history += f'Human: {q}\nAI: {ans}\n'
 
-        print(ans)
+        print(f"AI: {ans}")
+        print()
     except:
         print(history)
         break
