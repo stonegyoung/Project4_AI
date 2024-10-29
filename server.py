@@ -11,7 +11,7 @@ from langchain_openai import OpenAIEmbeddings
 
 import pyrebase
 import json
-
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -80,10 +80,11 @@ def login(login:Login):
         return {"result": "아이디 오류"}
 
 @app.get("/chatbot")
-def chatbot(chat:Chat):
+async def chatbot(chat:Chat):
     # 나중에 비동기
     history = get_session_history(chat.id)
-    context = format_docs(retriever.invoke(history+chat.question))
+    context = await retriever.ainvoke(history+chat.question)
+    context = format_docs(context)
     
     # 프롬프트 만들기
     result = chat_prompt.invoke({
@@ -93,7 +94,9 @@ def chatbot(chat:Chat):
     })
     
     # 답변
-    ans = chatgpt.invoke(result).content
+    ans = await chatgpt.ainvoke(result)
+    ans = ans.content
+    
     # 각 id의 히스토리에 추가
     data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
     db.child("User").child(chat.id).update(data)
@@ -107,4 +110,3 @@ def reset_chat(id:str=Form(...)):
 
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=9100)
-    
