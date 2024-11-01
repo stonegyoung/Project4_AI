@@ -11,11 +11,17 @@ from langchain_openai import OpenAIEmbeddings
 
 import pyrebase
 import json
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
+logging.basicConfig(
+    filename='history.log',   # 로그 파일 이름
+    level=logging.INFO,       # 로그 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s'  # 로그 포맷
+)
 with open("./chat/auth.json") as f:
     config = json.load(f)
     
@@ -117,6 +123,9 @@ async def chatbot(chat:Chat):
     # 각 id의 히스토리에 추가
     data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
     db.child("User").child(chat.id).update(data)
+    
+    logging.info(f'Question: {chat.question}, Answer: {ans}')  # 로그 기록
+    
     return {"result": ans}
 
 @app.get("/get_history")
