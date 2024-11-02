@@ -4,7 +4,8 @@ from langchain.chat_models import ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts.few_shot import FewShotPromptTemplate
 from langchain_core.prompts import PromptTemplate
-# from langchain.prompts import PromptTemplate
+
+import numpy as np
 
 import re
 import json
@@ -22,16 +23,16 @@ def convert_json(st):
     
     
 examples = [
+    # {
+    #     "question": "염종이 첨성대를 부순 이유로 알맞은것은?",
+    #     "n1" :"첨성대가 실제와 달라서",
+    #     "n2" :"첨성대가 자꾸 기울어져서",
+    #     "n3" :"아랑이 자기 지시대로 만들지 않아서",
+    #     "n4" :"아랑이 첨성대를 자기가 만든 것이라고 선덕여양에게 말해 달라고 해서",
+    #     "answer" :"4"
+    # },
     {
-        "question": "염종이 첨성대를 부순 이유로 알맞은것은?",
-        "n1" :"첨성대가 실제와 달라서",
-        "n2" :"첨성대가 자꾸 기울어져서",
-        "n3" :"아랑이 자기 지시대로 만들지 않아서",
-        "n4" :"아랑이 첨성대를 자기가 만든 것이라고 선덕여양에게 말해 달라고 해서",
-        "answer" :"4"
-    },
-    {
-        "question": "드라마의 특성으로 알맞지 않은 것은?",
+        "question": "드라마의 특성으로 거리가 먼 것은?",
         "n1" :"장소의 제한을 거의 받지 않는다.",
         "n2" :"음악을 통하여 분위기를 알 수 있다.",
         "n3" :"주로 문자를 통하여 내용이 전달된다.",
@@ -47,7 +48,7 @@ examples = [
         "answer": "3"
     },
     {
-        "question": "소설 *소나기*에서 소년이 소녀에게 특별한 감정을 느끼게 된 계기로 알맞은 것은?",
+        "question": "소설 *소나기*에서 소년이 소녀에게 특별한 감정을 느끼게 된 계기로 거리가 가까운 것은?",
         "n1": "둘이 함께 소나기를 피하면서",
         "n2": "소녀가 소년에게 꽃다발을 주면서",
         "n3": "소년이 소녀의 생일에 선물을 주면서",
@@ -62,7 +63,7 @@ example_prompt = PromptTemplate.from_template(
 prompt = FewShotPromptTemplate(
     examples=examples,
     example_prompt=example_prompt,
-    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 문제를 하나 만들고 4가지 선다와 정답을 JSON 형식으로 만들어주세요. 정답이 없을 수는 없고, 정답이 아닌 선지에 대해서는 이의가 없어야 합니다",
+    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 문제를 하나 만들고 4가지 선다와 정답을 JSON 형식으로 만들어주세요. 정답이 없을 수는 없고, 정답이 아닌 선지는 답과 거리가 멀어야 합니다",
     suffix="'문제': '생성된 문제', 'n1': '선택지 1', 'n2': '선택지 2', 'n3': '선택지 3', 'n4': '선택지 4', '정답': '정답 번호'",
     input_variables=["theme"],
 )
@@ -86,6 +87,8 @@ rag_chain = (
     |chatgpt # 모델
 )
 
-ans = rag_chain.invoke("해양쓰레기 종류")
+theme_list = ["해양쓰레기 종류", "해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성"]
+n = np.random.randint(0,len(theme_list))
+ans = rag_chain.invoke(theme_list[n])
 js = convert_json(ans.content)
 print(js)
