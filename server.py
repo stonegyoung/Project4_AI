@@ -162,6 +162,8 @@ def login(member:IdPw):
 @app.get("/chatbot")
 async def chatbot(chat:Chat):
     # 나중에 비동기
+    if chat.id == '':
+        return {"result":False}
     history = get_session_history(chat.id)
     context = await retriever.ainvoke(history+chat.question)
     context = format_docs(context)
@@ -206,6 +208,26 @@ def qna():
     n = np.random.randint(0,len(theme_list))
     ans = rag_chain.invoke(theme_list[n])
     js = convert_json(ans.content)
+    return js
+
+@app.get("/testchatbot")
+def testchatbot(tc:Chat):
+    n = np.random.randint(2, 7)
+    st = '테스트용 챗봇입니다.\n'
+    
+    return {"result":st*n}
+
+@app.get("/testqna")
+def testqna():
+    st ='''{
+        "문제": "드라마의 특성으로 거리가 먼 것은?",
+        "n1" :"장소의 제한을 거의 받지 않는다.",
+        "n2" :"음악을 통하여 분위기를 알 수 있다.",
+        "n3" :"주로 문자를 통하여 내용이 전달된다.",
+        "n4" :"연출가, 작가, 배우 등 여러 사람이 함께 만든다.",
+        "정답" :"3"
+    }'''
+    js = convert_json(st)
     return js
 
 if __name__ == "__main__":
