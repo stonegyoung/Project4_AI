@@ -2,10 +2,8 @@ from fastapi import FastAPI, Form
 import uvicorn
 from pydantic import BaseModel
 
-
 from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain.schema import SystemMessage
-# from langchain.chat_models import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough
@@ -17,10 +15,24 @@ import json
 import numpy as np
 import re
 
-from dotenv import load_dotenv
+import logging
 
+from dotenv import load_dotenv
 load_dotenv()
 
+logger1 = logging.getLogger('general_logger')
+logger1.setLevel(logging.INFO)  # 최소 레벨을 INFO로 설정
+handler1 = logging.FileHandler('info.log')  # history.log에 기록
+formatter1 = logging.Formatter('%(asctime)s - %(message)s')
+handler1.setFormatter(formatter1)
+logger1.addHandler(handler1)
+
+logger2 = logging.getLogger('history_logger')
+logger2.setLevel(logging.INFO)  # 최소 레벨을 ERROR로 설정
+handler2 = logging.FileHandler('history.log', encoding='utf-8')  # error.log에 기록
+formatter2 = logging.Formatter('%(message)s')
+handler2.setFormatter(formatter2)
+logger2.addHandler(handler2)
 
 with open("./chat/auth.json") as f:
     config = json.load(f)
@@ -131,6 +143,7 @@ class Chat(BaseModel):
     
 @app.get("/") 
 def root(): 
+    logger1.info("/")
     return {'result': '접속 완료'}
 
 @app.get("/join") 
@@ -143,6 +156,8 @@ def join(member:IdPw):
     db.child("User").child(member.id).set(data)
     
     loginid = set(db.child("User").get().val().keys())
+    
+    logger1.info("/join")
     return {'result': True} # 회원가입 완료
 
 @app.get("/login")
@@ -150,6 +165,7 @@ def login(member:IdPw):
     # 아이디가 DB안에 있고 pw가 동일하면 로그인 완료
     # DB 안에 없으면 회원가입/그냥 바로 만들기
     # pw 다르면 실패
+    logger1.info("/login")
     global loginid
     if member.id in loginid: # id 존재
         if member.pw == db.child("User").child(member.id).get().val()['pw']:
@@ -162,6 +178,7 @@ def login(member:IdPw):
 @app.get("/chatbot")
 async def chatbot(chat:Chat):
     # 나중에 비동기
+    logger1.info("/chatbot")
     if chat.id == '':
         return {"result":False}
     history = get_session_history(chat.id)
@@ -182,10 +199,12 @@ async def chatbot(chat:Chat):
     # 각 id의 히스토리에 추가
     data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
     db.child("User").child(chat.id).update(data)
+    logger2.info(f"Human: {chat.question}\nAI: {ans}\n\n")
     return {"result": ans}
 
 @app.get("/get_history")
 def get_history(id:str=Form(...)):
+    logger1.info("/get_history")
     global loginid
     if id in loginid: 
         return {"result": db.child("User").child(id).get().val()['history']}
@@ -194,6 +213,7 @@ def get_history(id:str=Form(...)):
     
 @app.get("/reset_chat")
 def reset_chat(id:str=Form(...)):
+    logger1.info("/reset_chat")
     # 초기화 코드
     global loginid
     if id in loginid: 
@@ -204,6 +224,7 @@ def reset_chat(id:str=Form(...)):
     
 @app.get("/qna")
 def qna():
+    logger1.info("/qna")
     global theme_list
     n = np.random.randint(0,len(theme_list))
     ans = rag_chain.invoke(theme_list[n])
@@ -212,6 +233,7 @@ def qna():
 
 @app.get("/testchatbot")
 def testchatbot(tc:Chat):
+    logger1.info("/testchatbot")
     n = np.random.randint(2, 7)
     st = '테스트용 챗봇입니다.\n'
     
@@ -219,6 +241,7 @@ def testchatbot(tc:Chat):
 
 @app.get("/testqna")
 def testqna():
+    logger1.info("/testqna")
     st ='''{
         "문제": "드라마의 특성으로 거리가 먼 것은?",
         "n1" :"장소의 제한을 거의 받지 않는다.",
