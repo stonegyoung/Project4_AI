@@ -5,9 +5,9 @@ from pydantic import BaseModel
 
 from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain.schema import SystemMessage
-from langchain.chat_models import ChatOpenAI
+# from langchain.chat_models import ChatOpenAI
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts.few_shot import FewShotPromptTemplate
 from langchain_core.prompts import PromptTemplate

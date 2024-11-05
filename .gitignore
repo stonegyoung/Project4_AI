@@ -31,8 +31,9 @@ share/python-wheels/
 MANIFEST
 /p4/
 .env
+auth.json
 /testDB/
-/chat/auth.json
+/*.db
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
