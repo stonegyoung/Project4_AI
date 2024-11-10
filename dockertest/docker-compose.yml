@@ -1,0 +1,29 @@
+services:
+  ragfastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: project1109
+    ports:
+      - "9100:9100"  # 호스트의 9100 포트를 컨테이너의 9100 포트에 바인딩
+    volumes:
+      - /c/project4/dockerlog:/code/logs  # 호스트의 /c/project4/dockerlog를 컨테이너의 /code/logs로 마운트
+    environment:
+      - PYTHONUNBUFFERED=1  # 로그 출력을 실시간으로 보기 위한 환경 변수
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9100", "--workers", "5"]
+
+# 도커 이미지 빌드
+# docker-compose build
+# 컨테이너 실행
+# docker-compose up <서비스 이름>
+# 컨테이너 백그라운드 실행
+# docker-compose up -d <서비스 이름>
+# 컨테이너 중지
+# docker-compose stop <서비스 이름>
+# 컨테이너 이미지 확인
+# docker-compose ps
+# 빌드 이미지 확인
+# docker-compose images
+
+
+
