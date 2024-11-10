@@ -11,3 +11,4 @@ pip intsall –r requirements.txt
 
 chat 폴더: 챗봇 관련 원시 코드(api key가 없다면 실행 안됨)
 mediapipe 폴더: 미디어파이프레퍼런스.txt 구현 코드
+QnAchat 폴더: 퀴즈 관련 코드(api key가 없다면 실행 안됨)

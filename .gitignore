@@ -32,7 +32,8 @@ MANIFEST
 /p4/
 .env
 auth.json
-/testDB/
+testDB/
+OceanDB/
 /*.db
 
 # PyInstaller

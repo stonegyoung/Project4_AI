@@ -69,12 +69,12 @@ chatgpt = ChatOpenAI(
     temperature = 0.3
 )
 
-vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/testDB')
+vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/OceanDB')
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})
 
 # 챗 메세지
 chat_messages = [
-    SystemMessage(content='당신은 해양 관련 지식을 가지고 있는 사람입니다. 질문에 대해 100자 내외로 말해주고, 해양과 관련된 이야기가 아니면 정중하게 거절해주세요.'),
+    SystemMessage(content='당신은 해양 관련 지식을 가지고 있는 사람입니다. 질문에 대해 100자 내외로 말해주고, 해양이나 해양 생물과 관련된 이야기가 아니면 정중하게 거절해주세요.'),
     HumanMessagePromptTemplate.from_template('{history}'),
     HumanMessagePromptTemplate.from_template('Context: {context}\nQuestion: {ques}')
 ]
@@ -116,7 +116,7 @@ example_prompt = PromptTemplate.from_template(
 qna_prompt = FewShotPromptTemplate(
     examples=examples,
     example_prompt=example_prompt,
-    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 문제를 하나 만들고 4가지 선다와 정답을 JSON 형식으로 만들어주세요. 정답이 없을 수는 없고, 정답이 아닌 선지는 답과 거리가 멀어야 합니다",
+    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 문제를 하나 만들고 4가지 선다와 정답을 JSON 형식으로 만들어주세요. 정답이 없을 수는 없고, 정답이 아닌 선지는 누가 봐도 답이 아니라고 생각 해야 합니다.",
     suffix="'문제': '생성된 문제', 'n1': '선택지 1', 'n2': '선택지 2', 'n3': '선택지 3', 'n4': '선택지 4', '정답': '정답 번호'",
     input_variables=["theme"],
 )
@@ -127,7 +127,7 @@ rag_chain = (
     |chatgpt # 모델
 )
 
-theme_list = ["해양쓰레기 종류", "해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성"]
+theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
 ################################################################################################################################################################
 
 
@@ -223,11 +223,11 @@ def reset_chat(id:str=Form(...)):
         return {"result": False}
     
 @app.get("/qna")
-def qna():
+async def qna():
     logger1.info("/qna")
     global theme_list
     n = np.random.randint(0,len(theme_list))
-    ans = rag_chain.invoke(theme_list[n])
+    ans = await rag_chain.ainvoke(theme_list[n])
     js = convert_json(ans.content)
     return js
 
@@ -254,4 +254,4 @@ def testqna():
     return js
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='0.0.0.0', port=9100)
+    uvicorn.run(app, host='0.0.0.0', port=9200)
