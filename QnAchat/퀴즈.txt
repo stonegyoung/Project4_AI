@@ -7,6 +7,11 @@ val_qna1.py
 valid_test1.ipynb의 실행 파일
 
 valid_test2.ipynb
-헤양에 대한 문제와 정답을 만드는 LLM 모델 + 오답을 만드는 LLM모델을 기반으로 질문을 만드는 모델
+헤양에 대한 문제와 정답을 만드는 LLM 모델 + 오답을 만드는 LLM모델
 val_qna2.py
 valid_test2.ipynb의 실행 파일
+
+valid_test3.ipynb
+출력 파서를 이용하여 문제와 정답을 만드는 LLM 모델 + 오답을 만드는 LLM 모델
+val_qna3.py
+valid_test3.ipynb의 실행 파일
