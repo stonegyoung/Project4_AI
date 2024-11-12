@@ -1,20 +1,23 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
+
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough
-from langchain_core.prompts.few_shot import FewShotPromptTemplate
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableMap, RunnablePassthrough
 import random
-
-import numpy as np
-
+from langchain_core.prompts.few_shot import FewShotPromptTemplate
 import re
 import json
 
-from dotenv import load_dotenv
-load_dotenv()
-
+import numpy as np
 def convert_json(st):
     try:
         st = re.search(r'\{.*?\}', st, re.DOTALL).group(0)
@@ -22,59 +25,39 @@ def convert_json(st):
         return st
     except:
         return False
-
-########################################################################################################################
-# 문제와 정답 만들기
-vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/testDB')
-retriever = vectorstore.as_retriever(search_kwargs={"k":3})
-
-# page_content만 저장
+    
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
+chatgpt = ChatOpenAI(temperature=0, model_name="gpt-4o-mini")
 
-chatgpt = ChatOpenAI(
-    model_name="gpt-4o-mini",
-    temperature = 1
+class Quiz(BaseModel):
+    ques: str = Field(description="객관식으로 선택할 수 있는 문제")
+    ans: str = Field(description="문제에 대한 정답")
+    
+vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/testDB')
+retriever = vectorstore.as_retriever(search_kwargs={"k":3})
+
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 객관식으로 선택할 수 있는 문제와 문제에 대한 정답을 만들어주세요. 문제는 이의 제기가 일어나지 않도록 확실한 정답이 아니라면 '거리가 가까운 것은?', '거리가 먼 것은?'이라는 형태로 끝나야 합니다."),
+        ("user", "#Format: {format_instructions}"),
+    ]
 )
 
-examples = [
-    {
-        "question": "드라마의 특성으로 거리가 먼 것은?",
-        "answer" :"주로 문자를 통하여 내용이 전달된다.",
-    },
-    {
-        "question": "소설 *소나기*에서 소년이 소녀에게 특별한 감정을 느끼게 된 계기로 거리가 가까운 것은?",
-        "answer": "둘이 함께 소나기를 피하면서"
-    }
-]
+parser = JsonOutputParser(pydantic_object=Quiz)
 
-example_prompt = PromptTemplate.from_template(
-    "'ques' : '{question}', 'ans': '{answer}'" # examples랑 같아야 함
-)
+prompt = prompt.partial(format_instructions=parser.get_format_instructions())
 
-prompt = FewShotPromptTemplate(
-    examples=examples,
-    example_prompt=example_prompt,
-    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 객관식으로 선택할 수 있는 문제를 하나 만들고 문제에 대한 정답을 JSON 형식으로 만들어주세요. 문제는 이의 제기가 일어나지 않게 '거리가 가까운 것은?', '거리가 먼 것은?'이라는 형태로 끝나야 합니다.",
-    suffix="'ques': '생성된 문제', 'ans': '정답'",
-    input_variables=["theme"],
-)
-
-rag_chain = (
+chain = (
     {'context': retriever|format_docs, 'theme': RunnablePassthrough()} # chat_prompt가 갖는 dict
-    |prompt # 프롬프트
-    |chatgpt # 모델
-)
+    |prompt | chatgpt | parser)  
 
 theme_list = ["해양쓰레기 종류", "해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성"]
 n = np.random.randint(0,len(theme_list))
-ans = rag_chain.invoke(theme_list[n])
-js = convert_json(ans.content)
-
-
-##################################################################################################################################################################
-# 오답 만들기
+js_ans = chain.invoke(theme_list[n])
+print(js_ans)
+############################################################################################33
 val_examples = [
     {
         "question":"해양쓰레기 종류에 대한 설명으로 알맞은 것은?",
@@ -109,19 +92,15 @@ val_chain = (
         'ques': RunnablePassthrough(),
         'ans': RunnablePassthrough(),
     })
-    |valid_prompt | chatgpt 
+    |valid_prompt | chatgpt
 )
 
-output = val_chain.invoke(js)
-result = convert_json(output.content)
+wrong = val_chain.invoke(js_ans)
+result = convert_json(wrong.content)
 
-############################################################################################################################
-# 합치기
-js.update(result)
-
-options = [js['ans'], js['wrong1'], js['wrong2'], js['wrong3']]
+options = [js_ans['ans']] + list(result.values())
 random.shuffle(options)
 
-quiz = {"문제": js['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": options.index(js['ans'])+1}
+quiz = {"문제": js_ans['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": options.index(js_ans['ans'])+1}
 
 print(quiz)

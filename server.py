@@ -139,12 +139,12 @@ val_example_prompt = PromptTemplate.from_template(
 valid_prompt = FewShotPromptTemplate(
     examples=val_examples,
     example_prompt=val_example_prompt,
-    prefix="당신은 다음의 문제를 보고, 문제에 대한 오답 선지를 만드는 사람입니다. 오해의 소지가 있을 문구는 제외하여 오답을 만들고 JSON 형식으로 만들어주세요.",
+    prefix="당신은 다음의 문제를 보고, 문제에 대한 오답 선지를 만드는 사람입니다. 오답은 정답과 비슷한 형식으로 만들되, 오해의 소지가 있을 문구는 제외하여 만들어주세요. 결과는 JSON 형식으로 만들어주세요.",
     suffix= "문제: {ques}\n정답: {ans}\n오답: ",
     input_variables=["ques", "ans"],
 )
 
-val_chain = (
+wrong_chain = (
     RunnableMap({
         'ques': RunnablePassthrough(),
         'ans': RunnablePassthrough(),
@@ -253,12 +253,10 @@ async def qna():
     ans = await rag_chain.ainvoke(theme_list[n])
     js = convert_json(ans.content)
     
-    ans = val_chain.invoke(js)
+    ans = await wrong_chain.ainvoke(js)
     wrong = convert_json(ans.content)
     
-    js.update(wrong)
-
-    options = [js['ans'], js['wrong1'], js['wrong2'], js['wrong3']]
+    options = [js['ans']] + list(wrong.values())
     random.shuffle(options)
 
     quiz = {"문제": js['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": options.index(js['ans'])+1}
