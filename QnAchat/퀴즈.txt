@@ -1,0 +1,12 @@
+qna.py
+해양에 대한 문제와 4가지 객관식 선지를 만드는 LLM 모델
+
+valid_test1.ipynb
+해양에 대한 문제와 4가지 객관식 선지를 만드는 LLM 모델에서 나온 답들을 기반으로 오답에 대한 검증을 하는 LLM 모델
+val_qna1.py
+valid_test1.ipynb의 실행 파일
+
+valid_test2.ipynb
+헤양에 대한 문제와 정답을 만드는 LLM 모델 + 오답을 만드는 LLM모델을 기반으로 질문을 만드는 모델
+val_qna2.py
+valid_test2.ipynb의 실행 파일
