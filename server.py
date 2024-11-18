@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, BackgroundTasks
 import uvicorn
 from pydantic import BaseModel
 
@@ -15,6 +15,7 @@ import pyrebase
 import json
 import numpy as np
 import re
+import asyncio
 
 import logging
 
@@ -63,11 +64,31 @@ def convert_json(st):
         return st
     except:
         return False
+    
+# 퀴즈 생성
+def make_quiz():
+    global quiz
+    
+    theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
+
+    n = np.random.randint(0,len(theme_list))
+    ans = rag_chain.invoke(theme_list[n])
+    js = convert_json(ans.content)
+    
+    ans = wrong_chain.invoke(js)
+    wrong = convert_json(ans.content)
+    
+    options = [js['ans']] + list(wrong.values())
+    random.shuffle(options)
+
+    right = options.index(js['ans'])+1
+    quiz = {"문제": js['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": right}
+
 
 # 모델
 chatgpt = ChatOpenAI(
     model_name="gpt-4o-mini",
-    temperature = 0.3
+    temperature = 0
 )
 
 vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/OceanDB')
@@ -111,9 +132,6 @@ rag_chain = (
     |chatgpt # 모델
 )
 
-theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
-
-
 # 오답
 val_examples = [
     {
@@ -151,6 +169,11 @@ wrong_chain = (
     })
     |valid_prompt | chatgpt 
 )
+
+quiz = dict()
+print(quiz)
+make_quiz()
+print(quiz)
 ################################################################################################################################################################
 
 
@@ -246,21 +269,11 @@ def reset_chat(id:str=Form(...)):
         return {"result": False}
     
 @app.get("/qna")
-async def qna():
+async def qna(bt: BackgroundTasks):
+    global quiz
     logger1.info("/qna")
-    global theme_list
-    n = np.random.randint(0,len(theme_list))
-    ans = await rag_chain.ainvoke(theme_list[n])
-    js = convert_json(ans.content)
-    
-    ans = await wrong_chain.ainvoke(js)
-    wrong = convert_json(ans.content)
-    
-    options = [js['ans']] + list(wrong.values())
-    random.shuffle(options)
-
-    quiz = {"문제": js['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": options.index(js['ans'])+1}
-
+    print(quiz['정답'])
+    bt.add_task(make_quiz)  # 새 퀴즈를 백그라운드에서 준비
     return quiz
 
 @app.get("/testchatbot")
@@ -286,4 +299,4 @@ def testqna():
     return js
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='0.0.0.0', port=9200)
+    uvicorn.run(app, host='0.0.0.0', port=9100)
