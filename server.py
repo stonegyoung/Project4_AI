@@ -15,7 +15,6 @@ import pyrebase
 import json
 import numpy as np
 import re
-import asyncio
 
 import logging
 
@@ -44,12 +43,11 @@ db = firebase.database()
 
 loginid = set(db.child("User").get().val().keys())
 
+theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
+n = np.random.randint(0,len(theme_list))
+
 def get_session_history(session_ids):
     print(f"[대화 세션ID]: {session_ids}")
-    if db.child("User").child(session_ids).get().val() is None:  # 세션 ID가 data에 없는 경우
-        # 새로운 ChatMessageHistory 객체를 생성하여 data에 저장
-        data = {"pw":"", "point":0, "history" : ""}
-        db.child("User").child(session_ids).set(data) 
     return db.child("User").child(session_ids).get().val()['history'] # 해당 세션 ID에 대한 세션 기록 반환
 
 # page_content만 저장
@@ -68,10 +66,8 @@ def convert_json(st):
 # 퀴즈 생성
 def make_quiz():
     global quiz
+    global n
     
-    theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
-
-    n = np.random.randint(0,len(theme_list))
     ans = rag_chain.invoke(theme_list[n])
     js = convert_json(ans.content)
     
@@ -88,7 +84,7 @@ def make_quiz():
 # 모델
 chatgpt = ChatOpenAI(
     model_name="gpt-4o-mini",
-    temperature = 0
+    temperature = 1
 )
 
 vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/OceanDB')
@@ -171,9 +167,8 @@ wrong_chain = (
 )
 
 quiz = dict()
-print(quiz)
 make_quiz()
-print(quiz)
+# print(quiz)
 ################################################################################################################################################################
 
 
@@ -214,7 +209,8 @@ def login(member:IdPw):
     logger1.info("/login")
     global loginid
     if member.id in loginid: # id 존재
-        if member.pw == db.child("User").child(member.id).get().val()['pw']:
+        data = db.child("User").child(member.id).get().val()
+        if member.pw == data['pw']:
             return {'result': True}
         else:
             return {'result': '비밀번호 오류'}
@@ -227,26 +223,32 @@ async def chatbot(chat:Chat):
     logger1.info("/chatbot")
     if chat.id == '':
         return {"result":False}
-    history = get_session_history(chat.id)
-    context = await retriever.ainvoke(history+chat.question)
-    context = format_docs(context)
-    
-    # 프롬프트 만들기
-    result = chat_prompt.invoke({
-        'history': history,
-        'context': context,
-        'ques': chat.question
-    })
-    
-    # 답변
-    ans = await chatgpt.ainvoke(result)
-    ans = ans.content
-    
-    # 각 id의 히스토리에 추가
-    data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
-    db.child("User").child(chat.id).update(data)
-    logger2.info(f"Human: {chat.question}\nAI: {ans}\n\n")
-    return {"result": ans}
+    if chat.question == '오늘의 예상 퀴즈':
+        result = f'오늘의 퀴즈는 "{theme_list[n]}" 부분에서 나올 것으로 예상됩니다!\n'
+        ans = await chatgpt.ainvoke(f'{theme_list[n]}에 대해 100자 이내로 알려줘')
+        result += ans.content
+        return {"result": result}
+    else:
+        history = get_session_history(chat.id)
+        context = await retriever.ainvoke(history+chat.question)
+        context = format_docs(context)
+        
+        # 프롬프트 만들기
+        result = chat_prompt.invoke({
+            'history': history,
+            'context': context,
+            'ques': chat.question
+        })
+        
+        # 답변
+        ans = await chatgpt.ainvoke(result)
+        ans = ans.content
+        
+        # 각 id의 히스토리에 추가
+        data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
+        db.child("User").child(chat.id).update(data)
+        logger2.info(f"Human: {chat.question}\nAI: {ans}\n\n")
+        return {"result": ans}
 
 @app.get("/get_history")
 def get_history(id:str=Form(...)):
@@ -287,16 +289,22 @@ def testchatbot(tc:Chat):
 @app.get("/testqna")
 def testqna():
     logger1.info("/testqna")
-    st ='''{
+    js ={
         "문제": "드라마의 특성으로 거리가 먼 것은?",
         "n1" :"장소의 제한을 거의 받지 않는다.",
         "n2" :"음악을 통하여 분위기를 알 수 있다.",
         "n3" :"주로 문자를 통하여 내용이 전달된다.",
         "n4" :"연출가, 작가, 배우 등 여러 사람이 함께 만든다.",
-        "정답" :"3"
-    }'''
-    js = convert_json(st)
+        "정답" :"3",
+        "테마" : theme_list[n],
+        "풀이" : "드라마는 문자보다는 음성과 영상으로 전달됩니다."
+    }
     return js
 
+@app.get("/changeN")
+def changeN():
+    global n
+    n = np.random.randint(0,len(theme_list))
+    
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=9100)
