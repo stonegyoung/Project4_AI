@@ -15,11 +15,23 @@ import pyrebase
 import json
 import numpy as np
 import re
+import pandas as pd
 
 import logging
 
 from dotenv import load_dotenv
 load_dotenv()
+
+df = pd.read_csv("quiz2.csv")
+
+theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
+datas = [pd.DataFrame() for i in range(len(theme_list))]
+for i in range(len(theme_list)):
+    if len(df[df['t'] == theme_list[i]]) == 0:
+        print(theme_list[i])
+    else:
+        datas[i] = df[df['t'] == theme_list[i]]
+
 
 logger1 = logging.getLogger('general_logger')
 logger1.setLevel(logging.INFO)  # 최소 레벨을 INFO로 설정
@@ -42,14 +54,6 @@ firebase = pyrebase.initialize_app(config)
 db = firebase.database()
 
 loginid = set(db.child("User").get().val().keys())
-
-theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
-n = np.random.randint(0,len(theme_list))
-
-def get_session_history(session_ids):
-    print(f"[대화 세션ID]: {session_ids}")
-    return db.child("User").child(session_ids).get().val()['history'] # 해당 세션 ID에 대한 세션 기록 반환
-
 # page_content만 저장
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
@@ -63,23 +67,11 @@ def convert_json(st):
     except:
         return False
     
-# 퀴즈 생성
-def make_quiz():
-    global quiz
-    global n
-    
-    ans = rag_chain.invoke(theme_list[n])
-    js = convert_json(ans.content)
-    
-    ans = wrong_chain.invoke(js)
-    wrong = convert_json(ans.content)
-    
-    options = [js['ans']] + list(wrong.values())
-    random.shuffle(options)
-
-    right = options.index(js['ans'])+1
-    quiz = {"문제": js['ques'], "n1":options[0], "n2":options[1], "n3": options[2], "n4": options[3], "정답": right}
-
+# 퀴즈 리턴
+def return_quiz(n):
+    global datas
+    sample = datas[n].sample(1).reset_index(drop = True)
+    return sample.to_dict(orient = 'records')[0]
 
 # 모델
 chatgpt = ChatOpenAI(
@@ -100,77 +92,7 @@ chat_messages = [
 # 챗 프롬프트
 chat_prompt = ChatPromptTemplate.from_messages(chat_messages)
 
-################################################################################################################################################################
-# 질문과 정답
-examples = [
-    {
-        "question": "드라마의 특성으로 거리가 먼 것은?",
-        "answer" :"주로 문자를 통하여 내용이 전달된다.",
-    },
-    {
-        "question": "소설 *소나기*에서 소년이 소녀에게 특별한 감정을 느끼게 된 계기로 거리가 가까운 것은?",
-        "answer": "둘이 함께 소나기를 피하면서"
-    }
-]
-example_prompt = PromptTemplate.from_template(
-    "'ques' : '{question}', 'ans': '{answer}'" # examples랑 같아야 함
-)
-qna_prompt = FewShotPromptTemplate(
-    examples=examples,
-    example_prompt=example_prompt,
-    prefix = "당신은 선생님입니다. {context}를 기반으로 정확하게 {theme}에 대한 객관식으로 선택할 수 있는 문제를 하나 만들고 질문에 대한 정답을 JSON 형식으로 만들어주세요. 문제는 이의 제기가 일어나지 않게 '거리가 가까운 것은?', '거리가 먼 것은?'이라는 형태로 끝나야 합니다.",
-    suffix="'ques': '생성된 문제', 'ans': '정답'",
-    input_variables=["theme"],
-)
-rag_chain = (
-    {'context': retriever|format_docs, 'theme': RunnablePassthrough()} # chat_prompt가 갖는 dict
-    |qna_prompt # 프롬프트
-    |chatgpt # 모델
-)
-
-# 오답
-val_examples = [
-    {
-        "question":"해양쓰레기 종류에 대한 설명으로 알맞은 것은?",
-        "answer": "해양쓰레기는 육상과 해상 모두에서 발생할 수 있다.",
-        "corr_1": "해양쓰레기는 오직 플라스틱으로만 구성된다.",
-        "corr_2": "해양쓰레기는 바다 생물의 생태계에 직접적인 영향을 미치지 않는다.",
-        "corr_3": "해양쓰레기는 모두 수거되어 재활용된다.",
-    },
-    {
-        "question": "해양쓰레기가 발생하는 주된 원인은 무엇인가?",
-        "answer": "하천과 강을 따라 바다로 들어오는 쓰레기", 
-        "corr_1": "해양 동물의 생태계를 보호하기 위한 법제정", 
-        "corr_2": "멸종 위기 종의 증가",
-        "corr_3": "자원봉사자의 봉사활동",
-    }
-]
-val_example_prompt = PromptTemplate.from_template(
-    "문제: {question}\n정답: {answer}\n"
-    "오답: 'wrong1': '{corr_1}', 'wrong2': '{corr_2}', 'wrong3': '{corr_3}'"
-)
-
-valid_prompt = FewShotPromptTemplate(
-    examples=val_examples,
-    example_prompt=val_example_prompt,
-    prefix="당신은 다음의 문제를 보고, 문제에 대한 오답 선지를 만드는 사람입니다. 오답은 정답과 비슷한 형식으로 만들되, 오해의 소지가 있을 문구는 제외하여 만들어주세요. 결과는 JSON 형식으로 만들어주세요.",
-    suffix= "문제: {ques}\n정답: {ans}\n오답: ",
-    input_variables=["ques", "ans"],
-)
-
-wrong_chain = (
-    RunnableMap({
-        'ques': RunnablePassthrough(),
-        'ans': RunnablePassthrough(),
-    })
-    |valid_prompt | chatgpt 
-)
-
-quiz = dict()
-make_quiz()
-# print(quiz)
-################################################################################################################################################################
-
+##################################################################################################################################################################
 
 app = FastAPI()
 
@@ -182,6 +104,9 @@ class Chat(BaseModel):
     id : str
     question : str
     
+class QuizId(BaseModel):
+    id : str
+    
 @app.get("/") 
 def root(): 
     logger1.info("/")
@@ -191,9 +116,9 @@ def root():
 def join(member:IdPw):
     # 저장
     global loginid
-    if member.id in loginid:
+    if member.id in loginid or member.id+'\u200b' in loginid:
         return {"result": False} # 존재하는 아이디
-    data = {"pw" : member.pw, "point": 0, "history" : ""}
+    data = {"pw" : member.pw, "point": 0, "history" : "", "theme": 11}
     db.child("User").child(member.id).set(data)
     
     loginid = set(db.child("User").get().val().keys())
@@ -204,14 +129,16 @@ def join(member:IdPw):
 @app.get("/login")
 def login(member:IdPw):
     # 아이디가 DB안에 있고 pw가 동일하면 로그인 완료
-    # DB 안에 없으면 회원가입/그냥 바로 만들기
     # pw 다르면 실패
     logger1.info("/login")
     global loginid
     if member.id in loginid: # id 존재
         data = db.child("User").child(member.id).get().val()
+        n = np.random.randint(0,len(theme_list))
         if member.pw == data['pw']:
-            return {'result': True}
+            print(f"[세션ID]: {member.id}")
+            db.child("User").child(member.id).update({'theme':n}) # theme 업데이트
+            return {'result': theme_list[n]}
         else:
             return {'result': '비밀번호 오류'}
     else:
@@ -219,17 +146,19 @@ def login(member:IdPw):
 
 @app.get("/chatbot")
 async def chatbot(chat:Chat):
-    # 나중에 비동기
     logger1.info("/chatbot")
     if chat.id == '':
         return {"result":False}
+    
+    data = db.child("User").child(chat.id).get().val()
+    theme = theme_list[data['theme']]
     if chat.question == '오늘의 예상 퀴즈':
-        result = f'오늘의 퀴즈는 "{theme_list[n]}" 부분에서 나올 것으로 예상됩니다!\n'
-        ans = await chatgpt.ainvoke(f'{theme_list[n]}에 대해 100자 이내로 알려줘')
+        result = f"오늘의 퀴즈는 '{theme}' 부분에서 나올 것으로 예상됩니다!\n"
+        ans = await chatgpt.ainvoke(f'{theme}에 대해 100자 이내로 알려줘')
         result += ans.content
         return {"result": result}
     else:
-        history = get_session_history(chat.id)
+        history = data['history']
         context = await retriever.ainvoke(history+chat.question)
         context = format_docs(context)
         
@@ -271,12 +200,11 @@ def reset_chat(id:str=Form(...)):
         return {"result": False}
     
 @app.get("/qna")
-async def qna(bt: BackgroundTasks):
-    global quiz
+async def qna(qid:QuizId):
     logger1.info("/qna")
-    print(quiz['정답'])
-    bt.add_task(make_quiz)  # 새 퀴즈를 백그라운드에서 준비
-    return quiz
+    n = db.child("User").child(qid.id).get().val()['theme']
+    json_quiz = return_quiz(n)
+    return json_quiz
 
 @app.get("/testchatbot")
 def testchatbot(tc:Chat):
@@ -287,24 +215,19 @@ def testchatbot(tc:Chat):
     return {"result":st*n}
 
 @app.get("/testqna")
-def testqna():
+def testqna(qid:QuizId):
     logger1.info("/testqna")
     js ={
-        "문제": "드라마의 특성으로 거리가 먼 것은?",
+        "q": "드라마의 특성으로 거리가 먼 것은?",
         "n1" :"장소의 제한을 거의 받지 않는다.",
         "n2" :"음악을 통하여 분위기를 알 수 있다.",
         "n3" :"주로 문자를 통하여 내용이 전달된다.",
         "n4" :"연출가, 작가, 배우 등 여러 사람이 함께 만든다.",
-        "정답" :"3",
-        "테마" : theme_list[n],
-        "풀이" : "드라마는 문자보다는 음성과 영상으로 전달됩니다."
+        "a" :"3",
+        "t" : "드라마",
+        "s" : "드라마는 문자보다는 음성과 영상으로 전달됩니다."
     }
     return js
-
-@app.get("/changeN")
-def changeN():
-    global n
-    n = np.random.randint(0,len(theme_list))
     
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=9100)
