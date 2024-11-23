@@ -10,21 +10,30 @@ from langchain_core.prompts.few_shot import FewShotPromptTemplate
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableMap, RunnablePassthrough
 import random
+import base64
 
 import pyrebase
 import json
 import numpy as np
 import re
 import pandas as pd
+import pickle
 
 import logging
 
 from dotenv import load_dotenv
 load_dotenv()
 
+with open('C:/project4/chat/results1.pkl', 'rb') as f:
+    quiz_story = pickle.load(f)
+    
+for qs in quiz_story:
+    print(qs['result'])
+
 df = pd.read_csv("quiz2.csv")
 
-theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
+theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 쓰레기섬", "미세플라스틱", "허베이스피릿호 원유유출 사고", "호주 검은 공 사건", "약품 사고", "폐어구에 걸린 돌고래", "우리나라 바다 거북", "상괭이"]
+# theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
 datas = [pd.DataFrame() for i in range(len(theme_list))]
 for i in range(len(theme_list)):
     if len(df[df['t'] == theme_list[i]]) == 0:
@@ -76,10 +85,10 @@ def return_quiz(n):
 # 모델
 chatgpt = ChatOpenAI(
     model_name="gpt-4o-mini",
-    temperature = 1
+    temperature = 0
 )
 
-vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/OceanDB')
+vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory='C:/project4/chat/ImgDB')
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})
 
 # 챗 메세지
@@ -118,7 +127,7 @@ def join(member:IdPw):
     global loginid
     if member.id in loginid or member.id+'\u200b' in loginid:
         return {"result": False} # 존재하는 아이디
-    data = {"pw" : member.pw, "point": 0, "history" : "", "theme": 11}
+    data = {"pw" : member.pw, "point": 0, "history" : "", "theme": len(theme_list)-1}
     db.child("User").child(member.id).set(data)
     
     loginid = set(db.child("User").get().val().keys())
@@ -137,7 +146,7 @@ def login(member:IdPw):
         n = np.random.randint(0,len(theme_list))
         if member.pw == data['pw']:
             print(f"[세션ID]: {member.id}")
-            db.child("User").child(member.id).update({'theme':n}) # theme 업데이트
+            db.child("User").child(member.id).update({'history':'', 'theme':n}) # theme 업데이트
             return {'result': theme_list[n]}
         else:
             return {'result': '비밀번호 오류'}
@@ -151,15 +160,37 @@ async def chatbot(chat:Chat):
         return {"result":False}
     
     data = db.child("User").child(chat.id).get().val()
-    theme = theme_list[data['theme']]
+    # theme = theme_list[data['theme']]
+    
     if chat.question == '오늘의 예상 퀴즈':
-        result = f"오늘의 퀴즈는 '{theme}' 부분에서 나올 것으로 예상됩니다!\n"
-        ans = await chatgpt.ainvoke(f'{theme}에 대해 100자 이내로 알려줘')
-        result += ans.content
-        return {"result": result}
+        # result = f"오늘의 퀴즈는 '{theme}' 부분에서 나올 것으로 예상됩니다!\n"
+        # context = await retriever.ainvoke(theme)
+        
+        # img = context[0].metadata['image']
+        # with open(img, "rb") as image_file:
+        #     image_data = image_file.read()
+        #     encoded_image = base64.b64encode(image_data).decode('utf-8') # 바이트 데이터
+
+        # link = context[0].metadata['news']
+        
+        # context = format_docs(context)
+        
+        # ans = await chatgpt.ainvoke(f'{context}를 요약해서 100자 이내로 알려줘')
+        # result += ans.content
+        # return {"result": result, "image": encoded_image, "link": link}
+        print(data)
+        return quiz_story[data['theme']]
     else:
         history = data['history']
-        context = await retriever.ainvoke(history+chat.question)
+        context = await retriever.ainvoke(chat.question)
+        print(context[0])
+        img = context[0].metadata['image']
+        with open(img, "rb") as image_file:
+            image_data = image_file.read()
+            encoded_image = base64.b64encode(image_data).decode('utf-8') # 바이트 데이터
+
+        link = context[0].metadata['news']
+        
         context = format_docs(context)
         
         # 프롬프트 만들기
@@ -177,7 +208,7 @@ async def chatbot(chat:Chat):
         data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
         db.child("User").child(chat.id).update(data)
         logger2.info(f"Human: {chat.question}\nAI: {ans}\n\n")
-        return {"result": ans}
+        return {"result": ans, "image": encoded_image, "link": link}
 
 @app.get("/get_history")
 def get_history(id:str=Form(...)):
@@ -211,11 +242,14 @@ def testchatbot(tc:Chat):
     logger1.info("/testchatbot")
     n = np.random.randint(2, 7)
     st = '테스트용 챗봇입니다.\n'
-    
-    return {"result":st*n}
+    bf = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x06\x00\x00\x00\x1f\xf3\xff\xa6\x00\x00\x00\x19tEXtSoftware\x00Adobe ImageReadyq\xc9e'
+    encoded_image = base64.b64encode(bf).decode('utf-8')
+    link = 'https://www.youtube.com/'
+
+    return {"result":st*n, "image": encoded_image, "link":link}
 
 @app.get("/testqna")
-def testqna(qid:QuizId):
+def testqna(tq:QuizId):
     logger1.info("/testqna")
     js ={
         "q": "드라마의 특성으로 거리가 먼 것은?",
