@@ -18,6 +18,7 @@ import numpy as np
 import re
 import pandas as pd
 import pickle
+from collections import Counter
 
 import logging
 
@@ -27,13 +28,11 @@ load_dotenv()
 with open('C:/project4/chat/results1.pkl', 'rb') as f:
     quiz_story = pickle.load(f)
     
-for qs in quiz_story:
-    print(qs['result'])
-
-df = pd.read_csv("quiz2.csv")
-
 theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 쓰레기섬", "미세플라스틱", "허베이스피릿호 원유유출 사고", "호주 검은 공 사건", "약품 사고", "폐어구에 걸린 돌고래", "우리나라 바다 거북", "상괭이"]
-# theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 해양 쓰레기 섬", "미세 플라스틱", "허베이스피릿호 원유유출 사고", "검은 공 사건", "약품 사고", "제주 바다 돌고래", "바다 거북", "상괭이"]
+
+df = pd.read_csv("quizzz.csv")
+# print(df.shape)
+
 datas = [pd.DataFrame() for i in range(len(theme_list))]
 for i in range(len(theme_list)):
     if len(df[df['t'] == theme_list[i]]) == 0:
@@ -178,18 +177,28 @@ async def chatbot(chat:Chat):
         # ans = await chatgpt.ainvoke(f'{context}를 요약해서 100자 이내로 알려줘')
         # result += ans.content
         # return {"result": result, "image": encoded_image, "link": link}
-        print(data)
         return quiz_story[data['theme']]
     else:
         history = data['history']
+        print(f'질문: {chat.question}')
         context = await retriever.ainvoke(chat.question)
-        print(context[0])
-        img = context[0].metadata['image']
+        
+        images = []
+        links = []
+        for con in context:
+            images.append(con.metadata['image'])
+            links.append(con.metadata['news'])
+        counter_img = Counter(images)
+        counter_link =  Counter(links)
+        img, _ = counter_img.most_common(1)[0]
+        link, _ = counter_link.most_common(1)[0]
+        print(img, link)
+        # img = context[0].metadata['image']
+        # link = context[0].metadata['news']
+        
         with open(img, "rb") as image_file:
             image_data = image_file.read()
             encoded_image = base64.b64encode(image_data).decode('utf-8') # 바이트 데이터
-
-        link = context[0].metadata['news']
         
         context = format_docs(context)
         
