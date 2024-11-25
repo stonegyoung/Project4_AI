@@ -161,7 +161,7 @@ async def chatbot(chat:Chat):
     data = db.child("User").child(chat.id).get().val()
     # theme = theme_list[data['theme']]
     
-    if chat.question == '오늘의 예상 퀴즈':
+    if chat.question == '오늘의 예상 퀴즈는?':
         # result = f"오늘의 퀴즈는 '{theme}' 부분에서 나올 것으로 예상됩니다!\n"
         # context = await retriever.ainvoke(theme)
         
@@ -212,6 +212,7 @@ async def chatbot(chat:Chat):
         # 답변
         ans = await chatgpt.ainvoke(result)
         ans = ans.content
+        print(ans)
         
         # 각 id의 히스토리에 추가
         data = {"history" : history+f'Human: {chat.question}\nAI: {ans}\n'}
@@ -244,6 +245,7 @@ async def qna(qid:QuizId):
     logger1.info("/qna")
     n = db.child("User").child(qid.id).get().val()['theme']
     json_quiz = return_quiz(n)
+    print(f'[정답]: {json_quiz["a"]}')
     return json_quiz
 
 @app.get("/testchatbot")
