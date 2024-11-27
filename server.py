@@ -25,7 +25,7 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-with open('C:/project4/chat/results1.pkl', 'rb') as f:
+with open('C:/project4/chat/result.pkl', 'rb') as f:
     quiz_story = pickle.load(f)
     
 theme_list = ["해양쓰레기 발생원인", "해양쓰레기 현황", "해양쓰레기 피해 및 위험성", "해양쓰레기 피해 사례", "태평양 쓰레기섬", "미세플라스틱", "허베이스피릿호 원유유출 사고", "호주 검은 공 사건", "약품 사고", "폐어구에 걸린 돌고래", "우리나라 바다 거북", "상괭이"]
@@ -183,18 +183,18 @@ async def chatbot(chat:Chat):
         print(f'질문: {chat.question}')
         context = await retriever.ainvoke(chat.question)
         
-        images = []
-        links = []
-        for con in context:
-            images.append(con.metadata['image'])
-            links.append(con.metadata['news'])
-        counter_img = Counter(images)
-        counter_link =  Counter(links)
-        img, _ = counter_img.most_common(1)[0]
-        link, _ = counter_link.most_common(1)[0]
-        print(img, link)
-        # img = context[0].metadata['image']
-        # link = context[0].metadata['news']
+        # images = []
+        # links = []
+        # for con in context:
+        #     images.append(con.metadata['image'])
+        #     links.append(con.metadata['news'])
+        # counter_img = Counter(images)
+        # counter_link =  Counter(links)
+        # img, _ = counter_img.most_common(1)[0]
+        # link, _ = counter_link.most_common(1)[0]
+        # print(img, link)
+        img = context[0].metadata['image']
+        link = context[0].metadata['news']
         
         with open(img, "rb") as image_file:
             image_data = image_file.read()
